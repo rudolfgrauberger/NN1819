@@ -8,14 +8,14 @@ public class GroundMover : MonoBehaviour {
 
     public Vector3 ForceVector;
 
-	// Use this for initialization
-	void Start () {
+    // Use this for initialization
+    void Start () {
         rigid = GetComponent<Rigidbody>();
         rigid.AddRelativeForce(ForceVector, ForceMode.VelocityChange);
-	}
-	
-	// Update is called once per frame
-	void Update () {
-		
-	}
+    }
+    
+    // Update is called once per frame
+    void Update () {
+        
+    }
 }

@@ -12,8 +12,8 @@ public class SensorSuite : MonoBehaviour {
     private bool LeftTriggered, RightTriggered, LeftCentralTriggered, RightCentralTriggered, GroundTriggered;
 
 
-	// Update is called once per frame
-	void FixedUpdate () {
+    // Update is called once per frame
+    void FixedUpdate () {
         DistLeft = 0;
         DistRight = 0;
         DistLeftCentral = 0;

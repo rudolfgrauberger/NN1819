@@ -26,17 +26,17 @@ public class TunnelGenerator : MonoBehaviour {
             GenerateNewSection();
         }
         initialized = true;
-	}
-	
-	// Update is called once per frame
-	void Update () {
+    }
+    
+    // Update is called once per frame
+    void Update () {
         if (IsOutOfBounds)
         {
             nextSection.GenerateNewSection();
             Destroy(gameObject);
         }
 
-	}
+    }
 
     void GenerateNewSection()
     {

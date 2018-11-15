@@ -17,15 +17,15 @@ public class ControlScript : MonoBehaviour {
     Vector3 initialPosition;
     Quaternion initialRotation;
 
-	// Use this for initialization
-	void Start () {
+    // Use this for initialization
+    void Start () {
         rigid = GetComponent<Rigidbody>();
         initialPosition = transform.position;
         initialRotation = transform.rotation;
-	}
-	
-	// Update is called once per frame
-	void Update () {
+    }
+    
+    // Update is called once per frame
+    void Update () {
         if (controlMode == ControlMode.automatic)
             return;
         if (Input.GetKey(KeyCode.A))
