@@ -1,5 +1,7 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
+using NeuralNetwork;
 using UnityEngine;
 
 public class ControlScript : MonoBehaviour {
@@ -17,15 +19,37 @@ public class ControlScript : MonoBehaviour {
     Vector3 initialPosition;
     Quaternion initialRotation;
 
+    private static NeuralNet network;
+    private SensorSuite sensors;
+
+    private static List<DataSet> dataSets;
+
     // Use this for initialization
     void Start () {
         rigid = GetComponent<Rigidbody>();
         initialPosition = transform.position;
         initialRotation = transform.rotation;
+
+        //Input - 3 (r,g,b) -- Output - 1 (Black/White)
+        network = new NeuralNet(6, 8, 3);
+        sensors = GameObject.FindObjectOfType<SensorSuite>();
+        dataSets = new List<DataSet>();
     }
     
     // Update is called once per frame
     void Update () {
+        if (sensors != null)
+        {
+            Debug.Log("+++++++++++++  ++++++++++++");
+            Debug.Log("DistLeft: " + sensors.DistLeft);
+            Debug.Log("DistRight: " + sensors.DistRight);
+            Debug.Log("DistGround: " + sensors.DistGround);
+            Debug.Log("DistLeftCentral: " + sensors.DistLeftCentral);
+            Debug.Log("DistRightCentral: " + sensors.DistRightCentral);
+            Debug.Log("FlierLateralPosition: " + sensors.FlierLateralPosition);
+            Debug.Log("+++++++++++++  ++++++++++++");
+        }
+
         if (controlMode == ControlMode.automatic)
             return;
         if (Input.GetKey(KeyCode.A))
