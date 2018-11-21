@@ -14,4 +14,4 @@ das Repository clonen.
 Anschließend Unity starten und dann in dem Register **Projects** im Start-Wizard über **Open** das gerade ausgecheckte Verzeichnis auswählen.
 
 ## Starten
-In dem Projects-Register unter **Assets>Scenes** die Scene **SampleScene** mit einem Doppelklick auswählen. Jetzt kann man mit dem Play-Button das Projekt starten.
+In dem **Projects**-Register unter **Assets>Scenes** die Scene **SampleScene** mit einem Doppelklick auswählen. Jetzt kann man mit dem Play-Button das Projekt starten.
