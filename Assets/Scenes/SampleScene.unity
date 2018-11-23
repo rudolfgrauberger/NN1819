@@ -415,8 +415,7 @@ MonoBehaviour:
   SidewaysForce: 10
   JumpForce: 10
   MinimumClearance: 1
-  TrainSetFile: Trainingdata-2018-21-11-1.csv
-  controlMode: 3
+  controlMode: 0
 --- !u!54 &1105636867
 Rigidbody:
   m_ObjectHideFlags: 0

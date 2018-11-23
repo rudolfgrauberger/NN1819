@@ -9,8 +9,6 @@ public class ControlScript : MonoBehaviour {
     private Rigidbody rigid;
 
     public float GroundDistance, StabilizingForce, SidewaysForce, JumpForce, MinimumClearance;
-    public String TrainSetFile = "TrainingData";
-
     private float steeringRightForce, steeringLeftForce, jumpingForce;
         
     private bool isJumping;
@@ -23,11 +21,13 @@ public class ControlScript : MonoBehaviour {
     private static NeuralNet network;
     private SensorSuite sensors;
 
-    private static List<DataSet> dataSets;
+    private readonly static String  RECORD_FILE = "./RecordedData/Default.csv";
+    private static Dictionary<Command, List<DataSet>> recordedData;
 
     private readonly static double[] LEFT_VECTOR = { 1.0, 0.0, 0.0 };
-    private readonly double[] RIGHT_VECTOR = { 0.0, 1.0, 0.0 };
+    private readonly static double[] RIGHT_VECTOR = { 0.0, 1.0, 0.0 };
     private readonly static double[] JUMP_VECTOR = { 0.0, 0.0, 1.0 };
+    private readonly static double[] NULL_VECTOR = { 0.0, 0.0, 0.0 };
 
 
     // Use this for initialization
@@ -39,17 +39,17 @@ public class ControlScript : MonoBehaviour {
         // 6 sensor inputs, 3 (commands) output
         network = new NeuralNet(6, 8, 3);
         sensors = GameObject.FindObjectOfType<SensorSuite>();
-        dataSets = new List<DataSet>();
+        recordedData = new Dictionary<Command, List<DataSet>>();
+        recordedData.Add(Command.Left, new List<DataSet>());
+        recordedData.Add(Command.Right, new List<DataSet>());
+        recordedData.Add(Command.Jump, new List<DataSet>());
+        recordedData.Add(Command.Empty, new List<DataSet>());
 
-        if (controlMode == ControlMode.trainFromData)
+        LoadDataFromTrainSet();
+
+        if (controlMode == ControlMode.automatic)
         {
-            LoadDataFromTrainSet();
             TrainNetwork();
-        }
-
-        if (controlMode == ControlMode.manualRecordForTraining)
-        {
-            Time.timeScale = 0.1f;
         }
     }
 
@@ -61,63 +61,93 @@ public class ControlScript : MonoBehaviour {
         for(int i = 0; i < values.Length; ++i)
         {
             if (biggestValue < values[i])
+            {
                 index = i;
+                biggestValue = values[i];
+            }
         }
 
-        return (Command)index;
+        if (biggestValue > 0.5)
+            return (Command)index;
+        else
+            return Command.Empty;
     }
     
     // Update is called once per frame
     void Update () {
-        if (controlMode ==  ControlMode.automatic || controlMode == ControlMode.trainFromData)
+        if (controlMode ==  ControlMode.automatic)
         {
-            double[] input = GetCurrentSensorVector();
-            double[] output = network.Compute(input);
-
-            Debug.Log(string.Format("Left: {0:F2}\tRight: {0:F2}\tJump: {0:F2}", output[0], output[1], output[2]));
-
-            switch (GetCommandFromOutput(output))
-            {
-                case Command.Left:
-                    {
-                        if (output[(int)Command.Left] > 0.5)
-                            SteerLeft(1, true);
-                    }
-                    break;
-                case Command.Right:
-                    {
-                        if (output[(int)Command.Right] > 0.5)
-                            SteerRight(1, true);
-                    }
-                    break;
-                case Command.Jump:
-                    {
-                        if (output[(int)Command.Jump] > 0.5)
-                        {
-                            Jump(1, true);
-                        }
-                    }
-                    break;
-                default:
-                    break;
-            }
+            ControlThroughTheNeuralNetwork();
             return;
         }
 
-        if (controlMode == ControlMode.manualRecordForTraining)
+        if (controlMode == ControlMode.manual)
         {
             if (Input.GetKey(KeyCode.W))
                 Time.timeScale = 1.0f;
             if (Input.GetKey(KeyCode.S))
                 Time.timeScale = 0.05f;
+            if (Input.GetKey(KeyCode.X))
+            {
+                SaveRecordedData();
+                if (recordedData.Count == 0)
+                {
+                    Application.Quit();
+                    return;
+                }
+            }
         }
 
-        if (Input.GetKey(KeyCode.A))
+        double[] currentVector = NULL_VECTOR;
+
+        if (Input.GetKey(KeyCode.A)) {
             SteerLeft(1, true);
-        if (Input.GetKey(KeyCode.D))
-            SteerRight(1,true);
-        if (Input.GetKeyDown(KeyCode.Space))
-            Jump(1,true);
+            currentVector = LEFT_VECTOR;
+        }
+        if (Input.GetKey(KeyCode.D)) {
+            SteerRight(1, true);
+            currentVector = RIGHT_VECTOR;
+        }
+        if (Input.GetKeyDown(KeyCode.Space)) {
+            Jump(1, true);
+            currentVector = JUMP_VECTOR;
+        }
+
+        recordedData[GetCommand(currentVector)].Add(new DataSet(GetCurrentSensorVector(), currentVector));
+    }
+
+    private void ControlThroughTheNeuralNetwork()
+    {
+        double[] input = GetCurrentSensorVector();
+        double[] output = network.Compute(input);
+
+        Debug.Log(string.Format("Left: {0:F2}\tRight: {1:F2}\tJump: {2:F2}", output[0], output[1], output[2]));
+
+        switch (GetCommandFromOutput(output))
+        {
+            case Command.Left:
+                {
+                    if (output[(int)Command.Left] > 0.1)
+                        SteerLeft(1, false);
+                }
+                break;
+            case Command.Right:
+                {
+                    if (output[(int)Command.Right] > 0.1)
+                        SteerRight(1, false);
+                }
+                break;
+            case Command.Jump:
+                {
+                    if (output[(int)Command.Jump] > 0.01)
+                    {
+                        Jump(1, false);
+                    }
+                }
+                break;
+            default:
+                break;
+        }
     }
 
     private void FixedUpdate()
@@ -145,17 +175,8 @@ public class ControlScript : MonoBehaviour {
 
     public void OnCollisionEnter(Collision collision)
     {
-        // Die letzten 10 Daten verwerfen
-        if (controlMode == ControlMode.manualRecordForTraining)
-        {
-            if (dataSets.Count > 10)
-                dataSets.RemoveRange(dataSets.Count - 10, 10);
-            else
-                dataSets.Clear();
-        }
-
+        Debug.Log(collision.other.ToString());
         StartCoroutine(Reset());
-        SaveRecordedData();
     }
 
     public void SteerRight(float force, bool manualOverride)
@@ -164,8 +185,8 @@ public class ControlScript : MonoBehaviour {
             return;
         steeringRightForce = Mathf.Clamp01(force);
 
-        if (controlMode == ControlMode.manualRecordForTraining)
-            dataSets.Add(new DataSet(GetCurrentSensorVector(), RIGHT_VECTOR));
+        /*if (controlMode == ControlMode.manual && IsBalancedAfterInsert(Command.Right))
+            recordedData[Command.Right].Add(new DataSet(GetCurrentSensorVector(), RIGHT_VECTOR));*/
     }
 
     public void SteerLeft(float force, bool manualOverride)
@@ -175,8 +196,8 @@ public class ControlScript : MonoBehaviour {
 
         steeringLeftForce = Mathf.Clamp01(force);
 
-        if (controlMode == ControlMode.manualRecordForTraining)
-            dataSets.Add(new DataSet(GetCurrentSensorVector(), LEFT_VECTOR));
+        /*if (controlMode == ControlMode.manual && IsBalancedAfterInsert(Command.Left))
+            recordedData[Command.Left].Add(new DataSet(GetCurrentSensorVector(), LEFT_VECTOR));*/
     }
 
     public void Jump(float force, bool manualOverride)
@@ -185,8 +206,8 @@ public class ControlScript : MonoBehaviour {
             return;
         jumpingForce = Mathf.Clamp01(force);
 
-        if (controlMode == ControlMode.manualRecordForTraining)
-            dataSets.Add(new DataSet(GetCurrentSensorVector(), JUMP_VECTOR));
+        /*if (controlMode == ControlMode.manual && IsBalancedAfterInsert(Command.Jump))
+            recordedData[Command.Jump].Add(new DataSet(GetCurrentSensorVector(), JUMP_VECTOR));*/
     }
     public void StopSteering()
     {
@@ -206,9 +227,11 @@ public class ControlScript : MonoBehaviour {
 
     private void LoadDataFromTrainSet()
     {
+        if (!System.IO.File.Exists(RECORD_FILE))
+            return;
+
         int lineCount = 0;
-        string filepath = string.Format("./TrainingData/{0}.csv", TrainSetFile);
-        System.IO.StreamReader file = new System.IO.StreamReader(filepath);
+        System.IO.StreamReader file = new System.IO.StreamReader(RECORD_FILE);
         String line = String.Empty;
 
         while ((line = file.ReadLine()) != null)
@@ -222,7 +245,7 @@ public class ControlScript : MonoBehaviour {
                     string.Format(
                         "Ungültige Spaltenanzahl in Zeile {0} der Datei {1}. (Erwartet: 9, Tatsächlich: {2}", 
                         lineCount,
-                        filepath,
+                        RECORD_FILE,
                         parts_of_line.Length
                     )
                 );
@@ -237,7 +260,7 @@ public class ControlScript : MonoBehaviour {
                 WriteDataIntoArray(i, value, sensorValues, commandValues);
             }
 
-            dataSets.Add(new DataSet(sensorValues, commandValues));
+            recordedData[GetCommand(commandValues)].Add(new DataSet(sensorValues, commandValues));
         }
     }
 
@@ -251,7 +274,15 @@ public class ControlScript : MonoBehaviour {
 
     private void SaveRecordedData()
     {
-        if (dataSets.Count == 0)
+        List<DataSet> datasetCollector = new List<DataSet>();
+        datasetCollector.AddRange(recordedData[Command.Left]);
+        datasetCollector.AddRange(recordedData[Command.Right]);
+        datasetCollector.AddRange(recordedData[Command.Jump]);
+        datasetCollector.AddRange(recordedData[Command.Empty]);
+
+        recordedData.Clear();
+
+        if (datasetCollector.Count == 0)
             return;
 
         string path = "./TrainingData";
@@ -259,11 +290,11 @@ public class ControlScript : MonoBehaviour {
         if (!System.IO.Directory.Exists(path))
             System.IO.Directory.CreateDirectory(path);
 
-        string filepath = string.Format("{0}/{1}-{2}.csv", path, TrainSetFile, DateTime.Now.ToString("yyyy-dd-M--HH-mm-ss"));
+        string filepath = string.Format("{0}/record-{1}.csv", path, DateTime.Now.ToString("yyyy-dd-M--HH-mm-ss"));
         System.IO.StreamWriter file = new System.IO.StreamWriter(filepath);
         String line = String.Empty;
 
-        foreach (var item in dataSets)
+        foreach (var item in datasetCollector)
         {
             string values = GetCommaSeperatedStringFromVector(item.Values);
             string targets = GetCommaSeperatedStringFromVector(item.Targets);
@@ -272,6 +303,48 @@ public class ControlScript : MonoBehaviour {
         }
 
         file.Close();
+    }
+
+    private bool IsBalancedAfterInsert(Command command)
+    {
+        return true;
+        int leftCount = 0;
+        int rightCount = 0;
+        int jumpCount = 0;
+
+        if (recordedData.ContainsKey(Command.Left))
+            leftCount = recordedData[Command.Left].Count;
+
+        if (recordedData.ContainsKey(Command.Right))
+            rightCount = recordedData[Command.Right].Count;
+
+        if (recordedData.ContainsKey(Command.Jump))
+            jumpCount = recordedData[Command.Jump].Count;
+
+        Debug.Log(string.Format("Left: {0}\tRight: {1}\tJump: {2}", leftCount, rightCount, jumpCount));
+
+        int sumCount = leftCount + rightCount + jumpCount;
+
+        // Alle haben gleich viele Elemente
+        if (sumCount % 3 == 0)
+            return true;
+
+        int maxValue = Math.Max(leftCount, rightCount);
+        maxValue = Math.Max(maxValue, jumpCount);
+
+        // Muss kleiner als der größte Wert sein
+        if (recordedData[command].Count < maxValue)
+            return true;
+        else
+            return false;
+    }
+
+    private Command GetCommand(double[] target)
+    {
+        if (target[(int)Command.Left] == 1) return Command.Left;
+        else if (target[(int)Command.Right] == 1) return Command.Right;
+        else if (target[(int)Command.Jump] == 1) return Command.Jump;
+        else return Command.Empty;
     }
 
     private string GetCommaSeperatedStringFromVector(double[] values)
@@ -293,7 +366,13 @@ public class ControlScript : MonoBehaviour {
 
     private void TrainNetwork()
     {
-        network.Train(dataSets, 0.05);
+        List<DataSet> datasetCollector = new List<DataSet>();
+        datasetCollector.AddRange(recordedData[Command.Left]);
+        datasetCollector.AddRange(recordedData[Command.Right]);
+        datasetCollector.AddRange(recordedData[Command.Jump]);
+        datasetCollector.AddRange(recordedData[Command.Empty]);
+
+        network.Train(datasetCollector, 0.08);
     }
 }
 
@@ -301,13 +380,12 @@ public enum Command
 {
     Left,
     Right,
-    Jump
+    Jump,
+    Empty
 }
 
 public enum ControlMode
 {
     manual,
-    manualRecordForTraining,
-    automatic,
-    trainFromData
+    automatic
 };
