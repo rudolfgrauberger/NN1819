@@ -25,9 +25,11 @@ public class ControlScript : MonoBehaviour {
     private static Dictionary<Command, List<DataSet>> recordedData;
 
     private readonly static double[] LEFT_VECTOR = { 1.0, 0.0, 0.0 };
-    private readonly static double[] RIGHT_VECTOR = { 0.0, 1.0, 0.0 };
-    private readonly static double[] JUMP_VECTOR = { 0.0, 0.0, 1.0 };
+    private readonly static double[] JUMP_VECTOR = { 0.0, 1.0, 0.0 };
+    private readonly static double[] RIGHT_VECTOR = { 0.0, 0.0, 1.0 };
     private readonly static double[] NULL_VECTOR = { 0.0, 0.0, 0.0 };
+
+    private Command lastCommand = Command.Empty;
 
     private static int frame = 0;
 
@@ -73,9 +75,11 @@ public class ControlScript : MonoBehaviour {
 
     // Update is called once per frame
     void Update () {
+        if (justCrashed) return;
+
         frame++;
 
-        if (controlMode ==  ControlMode.automatic)
+        if (controlMode == ControlMode.automatic)
         {
             ControlThroughTheNeuralNetwork();
             return;
@@ -117,10 +121,12 @@ public class ControlScript : MonoBehaviour {
             currentVector = JUMP_VECTOR;
         }
 
-        if (frame < 250) return;
+        if (frame < 250 || currentVector == NULL_VECTOR) return;
 
-        if (currentVector != NULL_VECTOR && recordedData[GetCommand(currentVector)].Count < 1000)
-            recordedData[GetCommand(currentVector)].Add(new DataSet(GetCurrentSensorVector(), currentVector));
+        lastCommand = GetCommand(currentVector);
+
+        if (recordedData[lastCommand].Count < 1000)
+            recordedData[lastCommand].Add(new DataSet(GetCurrentSensorVector(), currentVector));
 
         Debug.Log(string.Format("LeftCount: {0}\tRightCount: {1}\tJumpCount: {2}\tNeutral: {3}", 
             recordedData[Command.Left].Count,
@@ -182,7 +188,13 @@ public class ControlScript : MonoBehaviour {
     public void OnCollisionEnter(Collision collision)
     {
         if (!justCrashed)
+        {
+            if (recordedData[lastCommand].Count > 0)
+                recordedData[lastCommand].RemoveAt(recordedData[lastCommand].Count - 1);
+
             StartCoroutine(Reset());
+        }
+
     }
 
     public void SteerRight(float force, bool manualOverride)
@@ -284,7 +296,7 @@ public class ControlScript : MonoBehaviour {
         if (datasetCollector.Count == 0)
             return;
 
-        Guid aufzeichung = new Guid();
+        Guid aufzeichung = Guid.NewGuid();
 
         string path = "./RecordedData/" + aufzeichung;
 
@@ -307,7 +319,6 @@ public class ControlScript : MonoBehaviour {
 
     private bool IsBalancedAfterInsert(Command command)
     {
-        return true;
         int leftCount = 0;
         int rightCount = 0;
         int jumpCount = 0;
@@ -379,8 +390,8 @@ public class ControlScript : MonoBehaviour {
 public enum Command
 {
     Left,
-    Right,
     Jump,
+    Right,
     Empty
 }
 
