@@ -29,6 +29,8 @@ public class ControlScript : MonoBehaviour {
     private readonly static double[] JUMP_VECTOR = { 0.0, 0.0, 1.0 };
     private readonly static double[] NULL_VECTOR = { 0.0, 0.0, 0.0 };
 
+    private static int frame = 0;
+
 
     // Use this for initialization
     void Start () {
@@ -71,6 +73,8 @@ public class ControlScript : MonoBehaviour {
 
     // Update is called once per frame
     void Update () {
+        frame++;
+
         if (controlMode ==  ControlMode.automatic)
         {
             ControlThroughTheNeuralNetwork();
@@ -88,7 +92,11 @@ public class ControlScript : MonoBehaviour {
                 SaveRecordedData();
                 if (recordedData.Count == 0)
                 {
+#if UNITY_EDITOR
+                    UnityEditor.EditorApplication.isPlaying = false;
+#else
                     Application.Quit();
+#endif
                     return;
                 }
             }
@@ -108,6 +116,8 @@ public class ControlScript : MonoBehaviour {
             Jump(1, true);
             currentVector = JUMP_VECTOR;
         }
+
+        if (frame < 250) return;
 
         if (currentVector != NULL_VECTOR && recordedData[GetCommand(currentVector)].Count < 1000)
             recordedData[GetCommand(currentVector)].Add(new DataSet(GetCurrentSensorVector(), currentVector));
