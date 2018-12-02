@@ -45,10 +45,9 @@ public class ControlScript : MonoBehaviour {
         recordedData.Add(Command.Jump, new List<DataSet>());
         recordedData.Add(Command.Empty, new List<DataSet>());
 
-        LoadDataFromTrainSet();
-
         if (controlMode == ControlMode.automatic)
         {
+            LoadDataFromTrainSet();
             TrainNetwork();
         }
     }
@@ -58,7 +57,7 @@ public class ControlScript : MonoBehaviour {
         int index = -1;
         double biggestValue = 0.0;
 
-        for(int i = 0; i < values.Length; ++i)
+        for (int i = 0; i < values.Length; ++i)
         {
             if (biggestValue < values[i])
             {
@@ -67,12 +66,9 @@ public class ControlScript : MonoBehaviour {
             }
         }
 
-        if (biggestValue > 0.5)
-            return (Command)index;
-        else
-            return Command.Empty;
+        return (Command) index;
     }
-    
+
     // Update is called once per frame
     void Update () {
         if (controlMode ==  ControlMode.automatic)
@@ -113,7 +109,12 @@ public class ControlScript : MonoBehaviour {
             currentVector = JUMP_VECTOR;
         }
 
-        recordedData[GetCommand(currentVector)].Add(new DataSet(GetCurrentSensorVector(), currentVector));
+        if (currentVector != NULL_VECTOR && recordedData[GetCommand(currentVector)].Count < 1000)
+            recordedData[GetCommand(currentVector)].Add(new DataSet(GetCurrentSensorVector(), currentVector));
+
+        Debug.Log(string.Format("LeftCount: {0}\tRightCount: {1}\tJumpCount: {2}\tNeutral: {3}", 
+            recordedData[Command.Left].Count,
+            recordedData[Command.Right].Count, recordedData[Command.Jump].Count, recordedData[Command.Empty].Count));
     }
 
     private void ControlThroughTheNeuralNetwork()
@@ -127,22 +128,17 @@ public class ControlScript : MonoBehaviour {
         {
             case Command.Left:
                 {
-                    if (output[(int)Command.Left] > 0.1)
-                        SteerLeft(1, false);
+                    SteerLeft(1, false);
                 }
                 break;
             case Command.Right:
                 {
-                    if (output[(int)Command.Right] > 0.1)
-                        SteerRight(1, false);
+                    SteerRight(1, false);
                 }
                 break;
             case Command.Jump:
                 {
-                    if (output[(int)Command.Jump] > 0.01)
-                    {
-                        Jump(1, false);
-                    }
+                    Jump(1, false);
                 }
                 break;
             default:
@@ -175,7 +171,6 @@ public class ControlScript : MonoBehaviour {
 
     public void OnCollisionEnter(Collision collision)
     {
-        Debug.Log(collision.other.ToString());
         StartCoroutine(Reset());
     }
 
@@ -184,9 +179,6 @@ public class ControlScript : MonoBehaviour {
         if (controlMode == ControlMode.automatic && manualOverride)
             return;
         steeringRightForce = Mathf.Clamp01(force);
-
-        /*if (controlMode == ControlMode.manual && IsBalancedAfterInsert(Command.Right))
-            recordedData[Command.Right].Add(new DataSet(GetCurrentSensorVector(), RIGHT_VECTOR));*/
     }
 
     public void SteerLeft(float force, bool manualOverride)
@@ -195,9 +187,6 @@ public class ControlScript : MonoBehaviour {
             return;
 
         steeringLeftForce = Mathf.Clamp01(force);
-
-        /*if (controlMode == ControlMode.manual && IsBalancedAfterInsert(Command.Left))
-            recordedData[Command.Left].Add(new DataSet(GetCurrentSensorVector(), LEFT_VECTOR));*/
     }
 
     public void Jump(float force, bool manualOverride)
@@ -205,9 +194,6 @@ public class ControlScript : MonoBehaviour {
         if (controlMode == ControlMode.automatic && manualOverride)
             return;
         jumpingForce = Mathf.Clamp01(force);
-
-        /*if (controlMode == ControlMode.manual && IsBalancedAfterInsert(Command.Jump))
-            recordedData[Command.Jump].Add(new DataSet(GetCurrentSensorVector(), JUMP_VECTOR));*/
     }
     public void StopSteering()
     {
@@ -285,14 +271,15 @@ public class ControlScript : MonoBehaviour {
         if (datasetCollector.Count == 0)
             return;
 
-        string path = "./TrainingData";
+        Guid aufzeichung = new Guid();
+
+        string path = "./RecordedData/" + aufzeichung;
 
         if (!System.IO.Directory.Exists(path))
             System.IO.Directory.CreateDirectory(path);
 
-        string filepath = string.Format("{0}/record-{1}.csv", path, DateTime.Now.ToString("yyyy-dd-M--HH-mm-ss"));
+        string filepath = string.Format("{0}/Default.csv", path);
         System.IO.StreamWriter file = new System.IO.StreamWriter(filepath);
-        String line = String.Empty;
 
         foreach (var item in datasetCollector)
         {

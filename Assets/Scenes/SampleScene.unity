@@ -638,11 +638,11 @@ MonoBehaviour:
   RightCentral: {fileID: 946497867}
   Ground: {fileID: 1650116480}
   Flier: {fileID: 1105636865}
-  MaxDistLeft: 100
-  MaxDistRight: 100
-  MaxDistLeftCentral: 100
-  MaxDistRightCentral: 100
-  MaxDistGround: 50
+  MaxDistLeft: 200
+  MaxDistRight: 200
+  MaxDistLeftCentral: 200
+  MaxDistRightCentral: 200
+  MaxDistGround: 100
   LateralScale: 10
   DistLeft: 0
   DistRight: 0
