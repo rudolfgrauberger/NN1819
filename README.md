@@ -21,7 +21,5 @@ Es gibt folgende Möglichkeiten wie unser TicTac-Gefährt gesteuert werden kann:
 
 | Mode  | Beschreibung |
 | ------------- | ------------- |
-| Manual  | Hier kann man das Gefährt mit A (Links), D (Rechts) und Leertaste (Springen) steuern. |
-| Automatic  | Aktuell macht dieser Modus nichts  |
-| Manual Record For Training | Startet das Spiel mit der Geschwindigkeit 0.1, Zeichnet die Steuerung bis zum Crash auf, beim Crash werden die aufgezeichneten Daten in die Datei die unter *Train Set File* angegeben ist gespeichert. Eine weitere Besonderheit in diesem Modus ist, dass mit W (Normale Geschwindigkeit) und mit S (0.05 Geschwindigkeit) eingeschaltet wird ohne das diese Aktion aufgezeichnet wird. |
-| Train From Data | Startet das Spiel und Trainiert das Netz mit den Daten aus der Datei die in *Train Set File* benannt ist und nutzt anschließend die "intelligenz" um das Gefährt zu steuern |
+| Manual  | Hier kann man das Gefährt mit A (Links), D (Rechts) und Leertaste (Springen) steuern. Mit X wird der aktuelle Stand der Aufzeichnungen in ```./RecordedData/<GUID>/``` abgespeichert und die Anwendung beendet. |
+| Automatic  | In diesem Modus wird die Datei ```./RecordedData/Default.csv``` geladen und das Netzwerk damit trainiert. Anschließend wird das Spiel gestartet und das Netzwerk übernimmt die Steuerung. |
