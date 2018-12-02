@@ -21,5 +21,5 @@ Es gibt folgende Möglichkeiten wie unser TicTac-Gefährt gesteuert werden kann:
 
 | Mode  | Beschreibung |
 | ------------- | ------------- |
-| Manual  | Hier kann man das Gefährt mit A (Links), D (Rechts) und Leertaste (Springen) steuern. Mit X wird der aktuelle Stand der Aufzeichnungen in ```./RecordedData/<GUID>/``` abgespeichert und die Anwendung beendet. |
+| Manual  | Hier kann man das Gefährt mit **A** (Links), **D** (Rechts) und **Leertaste** (Springen) steuern. Mit X wird der aktuelle Stand der Aufzeichnungen in ```./RecordedData/<GUID>/``` abgespeichert und die Anwendung beendet. |
 | Automatic  | In diesem Modus wird die Datei ```./RecordedData/Default.csv``` geladen und das Netzwerk damit trainiert. Anschließend wird das Spiel gestartet und das Netzwerk übernimmt die Steuerung. |
