@@ -11,7 +11,7 @@ public class ControlScript : MonoBehaviour {
     public float GroundDistance, StabilizingForce, SidewaysForce, JumpForce, MinimumClearance;
     private float steeringRightForce, steeringLeftForce, jumpingForce;
         
-    private bool isJumping;
+    private bool isJumping, justCrashed;
     
     public ControlMode controlMode;
 
@@ -171,7 +171,8 @@ public class ControlScript : MonoBehaviour {
 
     public void OnCollisionEnter(Collision collision)
     {
-        StartCoroutine(Reset());
+        if (!justCrashed)
+            StartCoroutine(Reset());
     }
 
     public void SteerRight(float force, bool manualOverride)
@@ -204,11 +205,13 @@ public class ControlScript : MonoBehaviour {
 
     private IEnumerator Reset()
     {
+        justCrashed = true;
         yield return new WaitForSeconds(1);
         transform.position = initialPosition;
         transform.rotation = initialRotation;
         rigid.angularVelocity = Vector3.zero;
         rigid.velocity = Vector3.zero;
+        justCrashed = false;
     }
 
     private void LoadDataFromTrainSet()
