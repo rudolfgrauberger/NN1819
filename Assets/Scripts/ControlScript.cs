@@ -1,18 +1,22 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Threading;
 using Assets.Scripts;
 using NeuralNetwork;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class ControlScript : MonoBehaviour {
 
     private Rigidbody rigid;
 
+    public Text statusText, controlText;
+
     public float GroundDistance, StabilizingForce, SidewaysForce, JumpForce, MinimumClearance;
     private float steeringRightForce, steeringLeftForce, jumpingForce;
         
-    private bool isJumping, justCrashed;
+    private bool isJumping, justCrashed, isTraining, trainingJustFinished;
     
     public ControlMode controlMode;
 
@@ -33,14 +37,23 @@ public class ControlScript : MonoBehaviour {
     private readonly static int SENSOR_VALUE_COUNT = 6;
     private readonly static int TARGET_VALUE_COUNT = 3;
 
+    private readonly static string COMMAND_TEXT =
+        "Commands:\n\nA = Left\nD = Right\nSpace = Jump\nX = Save recoded data";
+
+    private readonly static string COMMAND_NN_TEXT = "Commands:\n\nESC = Abort training";
+
     private Command lastCommand = Command.Empty;
 
     private static int frame = 0;
+
+    private Thread trainingThread;
 
 
     // Use this for initialization
     void Start () {
         rigid = GetComponent<Rigidbody>();
+        SetStatusText("Welcome");
+        SetControlText(COMMAND_TEXT);
         initialPosition = transform.position;
         initialRotation = transform.rotation;
 
@@ -55,7 +68,10 @@ public class ControlScript : MonoBehaviour {
         if (controlMode == ControlMode.automatic)
         {
             LoadDataFromTrainSet();
-            TrainNetwork();
+            trainingThread = new Thread(new ThreadStart(TrainNetwork));
+            SetStatusText("Train the network...");
+            Time.timeScale = 0.0f;
+            trainingThread.Start();
         }
     }
 
@@ -83,16 +99,37 @@ public class ControlScript : MonoBehaviour {
     void Update () {
         frame++;
 
+        if (isTraining)
+        {
+            SetControlText(COMMAND_NN_TEXT);
+            if (!Input.GetKey(KeyCode.Escape))
+                return;
+
+            trainingThread.Abort();
+            isTraining = false;
+            Time.timeScale = 1.0f;
+            SetStatusText("Abort training...");
+        } else if (trainingJustFinished)
+        {
+            trainingJustFinished = false;
+            Time.timeScale = 1.0f;
+            SetStatusText("Finished training...");
+        }
+
         if (justCrashed) return;
 
         if (controlMode == ControlMode.automatic)
         {
+            SetControlText("Command:");
+            SetStatusText("Runs with neural network...");
             ControlThroughTheNeuralNetwork();
             return;
         }
 
         if (controlMode == ControlMode.manual)
         {
+            SetControlText(COMMAND_TEXT);
+            SetStatusText("Control the tic tac...");
             if (Input.GetKey(KeyCode.W))
                 Time.timeScale = 1.0f;
             if (Input.GetKey(KeyCode.S))
@@ -250,6 +287,8 @@ public class ControlScript : MonoBehaviour {
 
     private void LoadDataFromTrainSet()
     {
+        SetStatusText("Load training data from file...");
+
         if (!System.IO.File.Exists(RECORD_FILE))
             return;
 
@@ -390,14 +429,39 @@ public class ControlScript : MonoBehaviour {
 
     private void TrainNetwork()
     {
-        List<DataSet> datasetCollector = new List<DataSet>();
-        datasetCollector.AddRange(recordedData[Command.Left]);
-        datasetCollector.AddRange(recordedData[Command.Right]);
-        datasetCollector.AddRange(recordedData[Command.Jump]);
-        datasetCollector.AddRange(recordedData[Command.Empty]);
+        try
+        {
+            isTraining = true;
+            List<DataSet> datasetCollector = new List<DataSet>();
+            datasetCollector.AddRange(recordedData[Command.Left]);
+            datasetCollector.AddRange(recordedData[Command.Right]);
+            datasetCollector.AddRange(recordedData[Command.Jump]);
+            datasetCollector.AddRange(recordedData[Command.Empty]);
 
-        ITrainReporter trainingReport = new CsvTrainingLogger(RECORD_FILE + ".stat");
-        network.Train(datasetCollector, 0.08, trainingReport);
+            ITrainReporter trainingReport = new CsvTrainingLogger(RECORD_FILE + ".stat");
+            network.Train(datasetCollector, 0.08, trainingReport);
+        }
+        catch (ThreadAbortException abortException)
+        {
+            Debug.Log("Abort");
+        }
+        finally
+        {
+            Debug.Log("Finally");
+        }
+
+        isTraining = false;
+        trainingJustFinished = true;
+    }
+
+    private void SetStatusText(string message)
+    {
+        statusText.text = message;
+    }
+
+    private void SetControlText(string text)
+    {
+        controlText.text = text;
     }
 }
 
