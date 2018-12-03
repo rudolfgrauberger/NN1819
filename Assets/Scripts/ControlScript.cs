@@ -27,7 +27,10 @@ public class ControlScript : MonoBehaviour {
     private readonly static double[] LEFT_VECTOR = { 1.0, 0.0, 0.0 };
     private readonly static double[] JUMP_VECTOR = { 0.0, 1.0, 0.0 };
     private readonly static double[] RIGHT_VECTOR = { 0.0, 0.0, 1.0 };
-    private readonly static double[] NULL_VECTOR = { 0.0, 0.0, 0.0 };
+    private readonly static double[] NOTHING_VECTOR = { 0.0, 0.0, 0.0};
+
+    private readonly static int SENSOR_VALUE_COUNT = 6;
+    private readonly static int TARGET_VALUE_COUNT = 3;
 
     private Command lastCommand = Command.Empty;
 
@@ -40,8 +43,7 @@ public class ControlScript : MonoBehaviour {
         initialPosition = transform.position;
         initialRotation = transform.rotation;
 
-        // 6 sensor inputs, 3 (commands) output
-        network = new NeuralNet(6, 8, 3);
+        network = new NeuralNet(SENSOR_VALUE_COUNT, 8, TARGET_VALUE_COUNT);
         sensors = GameObject.FindObjectOfType<SensorSuite>();
         recordedData = new Dictionary<Command, List<DataSet>>();
         recordedData.Add(Command.Left, new List<DataSet>());
@@ -70,14 +72,17 @@ public class ControlScript : MonoBehaviour {
             }
         }
 
-        return (Command) index;
+        if (biggestValue > 0.5)
+            return (Command)index;
+        else
+            return Command.Empty;
     }
 
     // Update is called once per frame
     void Update () {
-        if (justCrashed) return;
-
         frame++;
+
+        if (justCrashed) return;
 
         if (controlMode == ControlMode.automatic)
         {
@@ -106,7 +111,7 @@ public class ControlScript : MonoBehaviour {
             }
         }
 
-        double[] currentVector = NULL_VECTOR;
+        double[] currentVector = NOTHING_VECTOR;
 
         if (Input.GetKey(KeyCode.A)) {
             SteerLeft(1, true);
@@ -121,12 +126,14 @@ public class ControlScript : MonoBehaviour {
             currentVector = JUMP_VECTOR;
         }
 
-        if (frame < 250 || currentVector == NULL_VECTOR) return;
+        if (frame < 250) return;
 
         lastCommand = GetCommand(currentVector);
 
-        if (recordedData[lastCommand].Count < 1000)
-            recordedData[lastCommand].Add(new DataSet(GetCurrentSensorVector(), currentVector));
+        if (lastCommand == Command.Empty)
+            return;
+
+        recordedData[lastCommand].Add(new DataSet(GetCurrentSensorVector(), currentVector));
 
         Debug.Log(string.Format("LeftCount: {0}\tRightCount: {1}\tJumpCount: {2}\tNeutral: {3}", 
             recordedData[Command.Left].Count,
@@ -138,7 +145,10 @@ public class ControlScript : MonoBehaviour {
         double[] input = GetCurrentSensorVector();
         double[] output = network.Compute(input);
 
-        Debug.Log(string.Format("Left: {0:F2}\tRight: {1:F2}\tJump: {2:F2}", output[0], output[1], output[2]));
+        Debug.Log(string.Format("Left: {0:F2}\tJump: {2:F2}\tRight: {1:F2}\n", 
+                            output[(int)Command.Left],
+                            output[(int)Command.Right],
+                            output[(int)Command.Jump]));
 
         switch (GetCommandFromOutput(output))
         {
@@ -189,12 +199,12 @@ public class ControlScript : MonoBehaviour {
     {
         if (!justCrashed)
         {
-            if (recordedData[lastCommand].Count > 0)
+        	// Remove last inserted element
+            if (controlMode == ControlMode.manual && recordedData[lastCommand].Count > 0)
                 recordedData[lastCommand].RemoveAt(recordedData[lastCommand].Count - 1);
 
             StartCoroutine(Reset());
         }
-
     }
 
     public void SteerRight(float force, bool manualOverride)
@@ -218,6 +228,7 @@ public class ControlScript : MonoBehaviour {
             return;
         jumpingForce = Mathf.Clamp01(force);
     }
+    
     public void StopSteering()
     {
         steeringRightForce=0;
@@ -250,20 +261,21 @@ public class ControlScript : MonoBehaviour {
             ++lineCount;
             String[] parts_of_line = line.Split(',');
 
-            if (parts_of_line.Length != 9)
+            if (parts_of_line.Length != (SENSOR_VALUE_COUNT + TARGET_VALUE_COUNT))
             {
                 throw new FormatException(
                     string.Format(
-                        "Ungültige Spaltenanzahl in Zeile {0} der Datei {1}. (Erwartet: 9, Tatsächlich: {2}", 
+                        "Ungültige Spaltenanzahl in Zeile {0} der Datei {1}. (Erwartet: {2}, Tatsächlich: {3}", 
                         lineCount,
                         RECORD_FILE,
+                        (SENSOR_VALUE_COUNT + TARGET_VALUE_COUNT),
                         parts_of_line.Length
                     )
                 );
             }
 
-            double[] sensorValues = new double[6];
-            double[] commandValues = new double[3];
+            double[] sensorValues = new double[SENSOR_VALUE_COUNT];
+            double[] commandValues = new double[TARGET_VALUE_COUNT];
 
             for (int i = 0; i < parts_of_line.Length; ++i)
             {
@@ -277,10 +289,10 @@ public class ControlScript : MonoBehaviour {
 
     private void WriteDataIntoArray(int index, double value, double[] sensorArray, double[] commandArray)
     {
-        if (index < 6)
+        if (index < SENSOR_VALUE_COUNT)
             sensorArray[index] = value;
-        else
-            commandArray[index % 3] = value;
+        else if (index < (SENSOR_VALUE_COUNT + TARGET_VALUE_COUNT))
+            commandArray[index % TARGET_VALUE_COUNT] = value;
     }
 
     private void SaveRecordedData()
@@ -337,7 +349,7 @@ public class ControlScript : MonoBehaviour {
         int sumCount = leftCount + rightCount + jumpCount;
 
         // Alle haben gleich viele Elemente
-        if (sumCount % 3 == 0)
+        if (sumCount % TARGET_VALUE_COUNT == 0)
             return true;
 
         int maxValue = Math.Max(leftCount, rightCount);
