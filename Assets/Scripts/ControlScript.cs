@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using Assets.Scripts;
 using NeuralNetwork;
 using UnityEngine;
 
@@ -395,7 +396,8 @@ public class ControlScript : MonoBehaviour {
         datasetCollector.AddRange(recordedData[Command.Jump]);
         datasetCollector.AddRange(recordedData[Command.Empty]);
 
-        network.Train(datasetCollector, 0.08);
+        ITrainReporter trainingReport = new CsvTrainingLogger(RECORD_FILE + ".stat");
+        network.Train(datasetCollector, 0.08, trainingReport);
     }
 }
 

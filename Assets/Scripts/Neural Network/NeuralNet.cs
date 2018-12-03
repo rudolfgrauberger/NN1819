@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using Assets.Scripts;
 
 namespace NeuralNetwork
 {
@@ -49,13 +50,16 @@ namespace NeuralNetwork
             }
         }
 
-        public void Train(List<DataSet> dataSets, double minimumError)
+        public void Train(List<DataSet> dataSets, double minimumError, ITrainReporter report = null)
         {
             var error = 1.0;
             var numEpochs = 0;
 
             while (error > minimumError && numEpochs < int.MaxValue)
             {
+                if (report != null)
+                    report.report(numEpochs, error);
+
                 var errors = new List<double>();
                 foreach (var dataSet in dataSets)
                 {
@@ -66,6 +70,9 @@ namespace NeuralNetwork
                 error = errors.Average();
                 numEpochs++;
             }
+
+            if (report != null)
+                report.report(numEpochs, error);
         }
 
         private void ForwardPropagate(params double[] inputs)
